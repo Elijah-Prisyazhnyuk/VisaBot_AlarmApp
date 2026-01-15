@@ -1,3 +1,12 @@
+package com.visabot.alarm
+
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.media.RingtoneManager
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+
 class AlarmService {
     companion object {
         fun triggerAlarm(context: Context, message: String) {
