@@ -1,3 +1,15 @@
+package com.visabot.alarm
+
+import android.app.Notification
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.net.URL
+
 class MonitoringService : Service() {
     private var isRunning = false
     private lateinit var sharedPrefs: android.content.SharedPreferences
