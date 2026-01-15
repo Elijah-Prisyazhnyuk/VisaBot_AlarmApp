@@ -18,7 +18,7 @@ jobs:
           gradle-version: '8.1.1' # Указываем совместимую версию
           
       - name: Build APK
-        run: gradle assembleDebug
+        run: gradle :app:assembleDebug
         
       - name: Upload APK
         uses: actions/upload-artifact@v4
