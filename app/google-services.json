@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "716061153618",
+    "project_id": "visabotalarm",
+    "storage_bucket": "visabotalarm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:716061153618:android:53dc286e35e9be5a88828b",
+        "android_client_info": {
+          "package_name": "com.visabot.alarm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmgzNet1MX3ozUFemAwpuzvOKxvWpQ1YE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
