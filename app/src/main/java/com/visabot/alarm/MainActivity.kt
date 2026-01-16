@@ -1,9 +1,7 @@
 package com.visabot.alarm
 
 import android.Manifest
-import android.app.AlertDialog
-import android.app.NotificationChannel
-import android.app.NotificationManager
+import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,17 +11,17 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import kotlinx.coroutines.*
-import org.json.JSONObject
-import java.net.URL
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
     private val NOTIFICATION_PERMISSION_CODE = 100
@@ -34,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var enabledSwitch: Switch
     private lateinit var statusText: TextView
     private lateinit var testButton: Button
+    private lateinit var fcmTokenText: TextView
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,30 +46,37 @@ class MainActivity : AppCompatActivity() {
         enabledSwitch = findViewById(R.id.enabledSwitch)
         statusText = findViewById(R.id.statusText)
         testButton = findViewById(R.id.testButton)
+        fcmTokenText = findViewById(R.id.fcmTokenText)
         
         // Загрузка сохраненных настроек
         botTokenInput.setText(sharedPrefs.getString("bot_token", "8503440831:AAFl8X6gE8mEkGO1RZuOaxa6wj9aP94op_s"))
         keywordInput.setText(sharedPrefs.getString("keyword", "🚨СРОЧНО🚨"))
         enabledSwitch.isChecked = sharedPrefs.getBoolean("enabled", true)
         
+        // Отображение FCM токена
+        val fcmToken = sharedPrefs.getString("fcm_token", "Получение токена...")
+        fcmTokenText.text = "FCM Token: ${fcmToken?.take(20)}..."
+        
+        // Создание канала уведомлений
         createNotificationChannel()
+        
+        // Запрос разрешений
         requestNotificationPermission()
         
+        // Инициализация Firebase и подписка на топик
+        initializeFirebase()
+        
+        // Кнопка сохранения
         findViewById<Button>(R.id.saveButton).setOnClickListener {
             saveSettings()
         }
         
+        // Кнопка теста
         testButton.setOnClickListener {
             testAlarm()
         }
         
-        // === НОВАЯ ФУНКЦИЯ ДЛЯ ДЕБАГА ===
-        // Долгое нажатие на кнопку "Тест" покажет последние сообщения
-        testButton.setOnLongClickListener {
-            debugCheckMessages()
-            true // Возвращаем true, чтобы обычный клик не сработал
-        }
-        
+        // Запуск фонового сервиса
         if (enabledSwitch.isChecked) {
             startMonitoringService()
         }
@@ -83,79 +89,32 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        updateStatus("Готов к работе. (Удерживайте 'Тест' для проверки сообщений)")
+        updateStatus("Готов к работе (Firebase + Telegram)")
     }
     
-    // === ФУНКЦИЯ ДЛЯ ПРОВЕРКИ СООБЩЕНИЙ ===
-    private fun debugCheckMessages() {
-        val token = botTokenInput.text.toString()
-        val keyword = keywordInput.text.toString()
-        
-        updateStatus("⏳ Подключение к Telegram...")
-        
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // Запрос последних обновлений БЕЗ смещения, чтобы увидеть хоть что-то
-                val url = "https://api.telegram.org/bot$token/getUpdates?limit=5"
-                val response = URL(url).readText()
-                val json = JSONObject(response)
-                
-                val sb = StringBuilder()
-                sb.append("🔍 РЕЗУЛЬТАТ ПРОВЕРКИ:\n\n")
-                
-                if (json.optBoolean("ok")) {
-                    val result = json.getJSONArray("result")
-                    sb.append("Найдено обновлений: ${result.length()}\n\n")
-                    
-                    if (result.length() == 0) {
-                        sb.append("⚠️ Список пуст! Возможные причины:\n")
-                        sb.append("1. Webhook включен (getUpdates не работает)\n")
-                        sb.append("2. Нет новых сообщений за 24ч\n")
-                        sb.append("3. Другой бот уже прочитал их")
-                    }
-                    
-                    for (i in 0 until result.length()) {
-                        val item = result.getJSONObject(i)
-                        val updateId = item.optLong("update_id")
-                        val message = item.optJSONObject("message")
-                        val text = message?.optString("text") ?: "No text"
-                        val chat = message?.optJSONObject("chat")
-                        val chatId = chat?.optLong("id") ?: 0
-                        
-                        sb.append("[$i] ID: $updateId | ChatID: $chatId\n")
-                        sb.append("Текст: '$text'\n")
-                        
-                        if (text.contains(keyword, ignoreCase = false)) {
-                            sb.append("✅ СЛОВО НАЙДЕНО!\n")
-                        } else {
-                            sb.append("❌ Нет ключевого слова\n")
-                        }
-                        sb.append("----------------\n")
-                    }
-                } else {
-                    sb.append("Ошибка API Telegram:\n$response")
-                }
-                
-                withContext(Dispatchers.Main) {
-                    showDebugDialog(sb.toString())
-                    statusText.text = "Проверка завершена"
-                }
-                
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    showDebugDialog("Ошибка сети: ${e.message}\n\nЕсли ошибка 'Conflict', значит нужно отключить Webhook.")
-                    statusText.text = "Ошибка проверки"
-                }
+    private fun initializeFirebase() {
+        // Получаем FCM токен
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                sharedPrefs.edit().putString("fcm_token", token).apply()
+                fcmTokenText.text = "FCM Token: ${token.take(20)}..."
+                Toast.makeText(this, "FCM токен получен", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Ошибка получения FCM токена", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-    
-    private fun showDebugDialog(text: String) {
-        AlertDialog.Builder(this)
-            .setTitle("Debug Info")
-            .setMessage(text)
-            .setPositiveButton("OK", null)
-            .show()
+        
+        // Подписка на топик
+        FirebaseMessaging.getInstance().subscribeToTopic("visa_alarm")
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    Toast.makeText(this, "✅ Подписка на visa_alarm активна", Toast.LENGTH_SHORT).show()
+                    updateStatus("Firebase подключен к топику visa_alarm")
+                } else {
+                    Toast.makeText(this, "❌ Ошибка подписки на топик", Toast.LENGTH_SHORT).show()
+                }
+            }
     }
     
     private fun saveSettings() {
@@ -190,7 +149,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(intent)
         }
-        updateStatus("Мониторинг запущен")
+        updateStatus("Мониторинг запущен (Firebase + Telegram)")
     }
     
     private fun stopMonitoringService() {
@@ -201,6 +160,7 @@ class MainActivity : AppCompatActivity() {
     
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Канал для обычных уведомлений
             val channel = NotificationChannel(
                 "visa_bot_service",
                 "VisaBot Сервис",
@@ -209,6 +169,7 @@ class MainActivity : AppCompatActivity() {
                 description = "Фоновый мониторинг сообщений"
             }
             
+            // Канал для СРОЧНЫХ уведомлений
             val urgentChannel = NotificationChannel(
                 "visa_bot_urgent",
                 "СРОЧНЫЕ УВЕДОМЛЕНИЯ",
@@ -247,6 +208,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
+        // Разрешение на игнорирование оптимизации батареи
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val intent = Intent()
             val packageName = packageName
