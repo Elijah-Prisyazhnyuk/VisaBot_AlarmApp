@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -16,6 +17,18 @@
             android:textStyle="bold"
             android:gravity="center"
             android:paddingBottom="16dp"/>
+
+        <!-- FCM Token -->
+        <TextView
+            android:id="@+id/fcmTokenText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="FCM Token: Получение..."
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:background="#F5F5F5"
+            android:padding="8dp"
+            android:layout_marginBottom="16dp"/>
 
         <TextView
             android:layout_width="match_parent"
@@ -117,7 +130,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="1. Введите токен вашего Telegram бота\n2. Настройте ключевое слово (🚨СРОЧНО🚨)\n3. Включите мониторинг\n4. Приложение будет проверять сообщения каждые 3 секунды\n5. При обнаружении ключевого слова запустится громкий будильник\n\nВАЖНО:\n• Отключите оптимизацию батареи для приложения\n• Дайте все необходимые разрешения\n• Поставьте максимальную громкость\n• Протестируйте будильник командой /test в боте"
+            android:text="✅ Firebase интегрирован!\n\n1. Приложение подписано на топик 'visa_alarm'\n2. Python бот будет отправлять push через Firebase\n3. Backup: Telegram polling каждые 3 секунды\n4. При получении 🚨СРОЧНО🚨 запустится будильник\n\nВАЖНО:\n• Отключите оптимизацию батареи\n• Дайте все разрешения\n• Максимальная громкость\n• Тест: /test в боте или /testfirebase"
             android:textSize="14sp"
             android:lineSpacingMultiplier="1.3"/>
 
