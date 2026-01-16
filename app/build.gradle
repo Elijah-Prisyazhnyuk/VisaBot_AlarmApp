@@ -1,10 +1,14 @@
 plugins {
     id 'com.android.application'
     id 'kotlin-android'
-    id 'com.google.gms.google-services'  // ← Firebase plugin
+    id 'com.google.gms.google-services'
 }
 
 android {
+    // === ДОБАВЬТЕ ЭТУ СТРОКУ ===
+    namespace 'com.visabot.alarm' 
+    // ===========================
+
     compileSdk 34
 
     defaultConfig {
